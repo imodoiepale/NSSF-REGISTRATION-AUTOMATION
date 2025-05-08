@@ -180,7 +180,7 @@ export function FormPage() {
         
         // If it wasn't a normal closure, start polling as fallback
         if (event.code !== 1000) {
-          toast.info('Lost connection to server. Switching to polling updates.');
+          toast('Lost connection to server. Switching to polling updates.');
           startPolling(id);
         }
       };
