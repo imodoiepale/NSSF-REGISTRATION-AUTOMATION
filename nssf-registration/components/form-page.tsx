@@ -128,6 +128,9 @@ export function FormPage() {
   // Fallback polling mechanism if WebSockets fail
   const startPolling = (id: string) => {
     console.log('Starting polling for status updates...');
+    // Make sure we're using the same API URL as defined earlier (HTTPS)
+    console.log('Using API URL for polling:', API_URL);
+    
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(`${API_URL}/submit-form/status?id=${id}`, {

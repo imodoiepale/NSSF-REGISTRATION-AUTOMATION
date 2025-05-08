@@ -20,8 +20,10 @@ const clients = new Map();
 app.use(cors({
   origin: '*', // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Handle preflight requests
@@ -36,8 +38,23 @@ app.get('/', (req, res) => {
 
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
-  const url = new URL(req.url, 'https://localhost');
-  const id = url.searchParams.get('id');
+  // Handle both localhost and production URLs
+  let id;
+  try {
+    // If req.url starts with /, it's a path, not a full URL
+    let url;
+    if (req.url.startsWith('/?id=')) {
+      url = new URL(`https://localhost${req.url}`);
+    } else {
+      url = new URL(req.url, 'https://localhost');
+    }
+    id = url.searchParams.get('id');
+  } catch (error) {
+    console.error('Error parsing WebSocket URL:', error);
+    // Try to extract id directly from URL if parsing fails
+    const match = req.url.match(/[?&]id=([^&]+)/);
+    id = match ? match[1] : null;
+  }
   
   if (id) {
     clients.set(id, ws);
