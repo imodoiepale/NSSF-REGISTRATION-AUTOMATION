@@ -63,8 +63,15 @@ export function FormPage() {
 
   // Check server connectivity and determine which backend to use
   const [serverStatus, setServerStatus] = useState('checking');
-  const [API_URL, setApiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
   const HOSTED_API_URL = 'https://nssf-backend-production.up.railway.app';
+  
+  // For production build, prioritize the Railway URL
+  const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+  const [API_URL, setApiUrl] = useState(
+    isProduction ? 
+    HOSTED_API_URL : 
+    (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001')
+  );
 
   useEffect(() => {
     const checkServerConnectivity = async () => {
@@ -72,28 +79,52 @@ export function FormPage() {
       setServerStatus('checking');
 
       try {
-        // Try local server first
-        const localUrl = 'http://localhost:3001';
-        console.log('Testing local backend at:', localUrl);
+        // In production, try the hosted server first
+        if (isProduction) {
+          try {
+            console.log('Testing hosted backend at:', HOSTED_API_URL);
+            const hostedResponse = await fetch(`${HOSTED_API_URL}/health`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              signal: AbortSignal.timeout(5000)
+            });
 
-        try {
-          const localResponse = await fetch(`${localUrl}/health`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            signal: AbortSignal.timeout(2000)
-          });
-
-          if (localResponse.ok) {
-            console.log('Local server is available!');
-            setApiUrl(localUrl);
-            setServerStatus('local');
-            toast.success('Connected to local backend server');
-            return;
+            if (hostedResponse.ok) {
+              console.log('Hosted server is available!');
+              setApiUrl(HOSTED_API_URL);
+              setServerStatus('remote');
+              toast.success('Connected to hosted backend server');
+              return;
+            }
+          } catch (hostedError) {
+            console.log('Hosted server not available:', hostedError.message);
           }
-        } catch (localError) {
-          console.log('Local server not available:', localError.message);
+        } else {
+          // In development, try local server first
+          const localUrl = 'http://localhost:3001';
+          console.log('Testing local backend at:', localUrl);
+
+          try {
+            const localResponse = await fetch(`${localUrl}/health`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              signal: AbortSignal.timeout(2000)
+            });
+
+            if (localResponse.ok) {
+              console.log('Local server is available!');
+              setApiUrl(localUrl);
+              setServerStatus('local');
+              toast.success('Connected to local backend server');
+              return;
+            }
+          } catch (localError) {
+            console.log('Local server not available:', localError.message);
+          }
         }
 
         // If local fails, try hosted server
