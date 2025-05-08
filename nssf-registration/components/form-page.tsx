@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
   CardDescription, 
-  CardFooter, 
   CardHeader, 
   CardTitle 
 } from '@/components/ui/card';
@@ -29,8 +28,22 @@ export function FormPage() {
     email: ''
   });
   const [pdfData, setPdfData] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState('');
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
   
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+  // Clean up WebSocket connection when component unmounts
+  useEffect(() => {
+    return () => {
+      // Close any open WebSocket connections
+      if (wsConnected) {
+        console.log('Cleaning up WebSocket connection');
+      }
+    };
+  }, [wsConnected]);
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://nssf-backend-production.up.railway.app';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -45,20 +58,127 @@ export function FormPage() {
     
     // Validate required fields
     if (!formData.firstName || !formData.surname || !formData.idNumber || !formData.dateOfBirth) {
-      toast(`{
-        variant: "destructive",
-        title: "Error",
-        description: "Please fill in all required fields",
-      }`);
+      toast.error("Please fill in all required fields");
       return;
     }
     
-    toast(`{
-      title: "Success",
-      description: "Personal information saved successfully",
-    }`);
+    toast.success("Personal information saved successfully");
     
     setStep(2);
+  };
+
+  // Function to connect to WebSocket for real-time progress updates
+  const connectWebSocket = (id: string) => {
+    // Close any existing connection
+    if (wsConnected) {
+      return;
+    }
+    
+    // Create WebSocket connection
+    // Note: Railway doesn't support WebSockets by default on free tier
+    // We'll use polling as a fallback if WebSocket fails
+    try {
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://nssf-backend-production.up.railway.app';
+      console.log('Connecting to WebSocket:', `${wsUrl}/ws?id=${id}`);
+      
+      const socket = new WebSocket(`${wsUrl}/ws?id=${id}`);
+      
+      socket.onopen = () => {
+        console.log('WebSocket connection established');
+        setWsConnected(true);
+      };
+      
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data);
+          
+          setProgress(data.progress);
+          setStatus(data.status);
+          
+          if (data.status === 'complete' && data.progress === 100) {
+            // Fetch the completed PDF
+            fetchCompletedPdf(id);
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+      
+      socket.onclose = () => {
+        console.log('WebSocket connection closed');
+        setWsConnected(false);
+        // Start polling as fallback
+        startPolling(id);
+      };
+      
+      socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setWsConnected(false);
+        // Start polling as fallback
+        startPolling(id);
+      };
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      // Start polling as fallback
+      startPolling(id);
+    }
+  };
+  
+  // Fallback polling mechanism if WebSockets fail
+  const startPolling = (id: string) => {
+    console.log('Starting polling for status updates...');
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_URL}/submit-form/status?id=${id}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+        
+        const result = await response.json();
+        
+        if (result.status) {
+          setProgress(result.progress || 0);
+          setStatus(result.status);
+          
+          if (result.status === 'complete' || result.status === 'error') {
+            clearInterval(pollInterval);
+            if (result.status === 'complete' && result.pdfData) {
+              setPdfData(result.pdfData);
+              setStep(3);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 3000); // Poll every 3 seconds
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(pollInterval);
+  };
+  
+  // Function to fetch the completed PDF
+  const fetchCompletedPdf = async (id: string) => {
+    try {
+      const response = await fetch(`${API_URL}/submit-form/status?id=${id}`, {
+        method: 'GET',
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.pdfData) {
+        setPdfData(result.pdfData);
+        toast.success("PDF generated successfully");
+        setStep(3);
+      }
+    } catch (error) {
+      console.error('Error fetching PDF:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -66,46 +186,76 @@ export function FormPage() {
     
     // Validate required fields
     if (!formData.mobileNumber || !formData.email) {
-      toast(`{
-        variant: "destructive",
-        title: "Error",
-        description: "Please fill in all required fields",
-      }`);
+      toast.error("Please fill in all required fields");
       return;
     }
 
     setLoading(true);
+    setProgress(0);
+    setStatus('starting');
 
     try {
+      console.log('Submitting form to:', `${API_URL}/submit-form`);
+      console.log('Form data:', formData);
+      
+      // First, test if the backend is reachable
+      try {
+        const healthCheck = await fetch(`${API_URL}`, {
+          method: 'GET',
+          mode: 'cors',
+        });
+        console.log('Health check response:', await healthCheck.text());
+      } catch (healthError) {
+        console.error('Health check failed:', healthError);
+      }
+      
+      // Now submit the actual form data
       const response = await fetch(`${API_URL}/submit-form`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        mode: 'cors',
         body: JSON.stringify(formData),
       });
 
-      const result = await response.json();
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+      
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        throw new Error('Invalid response from server');
+      }
 
       if (!result.success) {
         throw new Error(result.message || 'Failed to submit form');
       }
-
-      setPdfData(result.pdfData);
       
-      toast(`{
-        title: "Success",
-        description: "Form submitted and PDF generated successfully",
-      }`);
+      // Store the requestId for WebSocket connection
+      if (result.requestId) {
+        setRequestId(result.requestId);
+        console.log('Connecting WebSocket with ID:', result.requestId);
+        connectWebSocket(result.requestId);
+        
+        toast.info("Your registration is being processed. Please wait...");
+      }
       
-      setStep(3);
-    } catch (err: any) {
-      toast(`{
-        variant: "destructive",
-        title: "Error",
-        description: err.message || 'An error occurred while submitting the form',
-      }`);
-    } finally {
+      // If PDF data is immediately available
+      if (result.pdfData) {
+        setPdfData(result.pdfData);
+        toast.success("Form submitted and PDF generated successfully");
+        setStep(3);
+        setLoading(false);
+      }
+    } catch (error: unknown) {
+      console.error('Form submission error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while submitting the form';
+      toast.error(errorMessage);
       setLoading(false);
     }
   };
@@ -121,10 +271,7 @@ export function FormPage() {
     downloadLink.download = fileName;
     downloadLink.click();
     
-    toast(`{
-      title: "Downloaded",
-      description: "Your PDF has been downloaded successfully",
-    }`);
+    toast.success("Your PDF has been downloaded successfully");
   };
   
   // Step display component
@@ -255,15 +402,37 @@ export function FormPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full" 
+                  className="w-full"
                 >
                   Continue to Contact Information
                 </Button>
               </form>
             )}
 
-            {step === 2 && (
+                            {step === 2 && (
               <form onSubmit={handleSubmitForm} className="space-y-6">
+                {/* Progress Indicator */}
+                {loading && (
+                  <div className="mb-6">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm font-medium">Progress</span>
+                      <span className="text-sm font-medium">{progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className="bg-primary h-2.5 rounded-full transition-all duration-300" 
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      {status === 'starting' && 'Starting automation...'}
+                      {status === 'processing' && 'Processing your registration...'}
+                      {status === 'complete' && 'Registration complete!'}
+                      {status === 'error' && 'Error occurred during processing'}
+                    </p>
+                  </div>
+                )}
+                
                 <div className="space-y-2">
                   <h3 className="text-lg font-medium">Contact Information</h3>
                   <p className="text-sm text-muted-foreground">
@@ -380,6 +549,10 @@ export function FormPage() {
                   onClick={() => {
                     setStep(1);
                     setPdfData(null);
+                    setProgress(0);
+                    setStatus('');
+                    setRequestId(null);
+                    setWsConnected(false);
                     setFormData({
                       firstName: '',
                       middleName: '',
