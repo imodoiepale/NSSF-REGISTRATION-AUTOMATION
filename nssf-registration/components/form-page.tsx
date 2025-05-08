@@ -163,6 +163,26 @@ export function FormPage() {
       socket.onopen = () => {
         console.log('WebSocket connection established');
         setWsConnected(true);
+        toast.success('Connected to real-time progress updates');
+      };
+      
+      socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setWsConnected(false);
+        toast.error('Error connecting to real-time updates. Falling back to polling.');
+        // Fall back to polling
+        startPolling(id);
+      };
+      
+      socket.onclose = (event) => {
+        console.log('WebSocket connection closed:', event.code, event.reason);
+        setWsConnected(false);
+        
+        // If it wasn't a normal closure, start polling as fallback
+        if (event.code !== 1000) {
+          toast.info('Lost connection to server. Switching to polling updates.');
+          startPolling(id);
+        }
       };
       
       socket.onmessage = (event) => {
@@ -182,7 +202,9 @@ export function FormPage() {
             console.log('Received CAPTCHA image');
             setCaptchaImage(data.captchaImage);
             setStatus('captcha_needed');
-            toast('Please enter the CAPTCHA text displayed in the image');
+            toast('Please enter the CAPTCHA text displayed in the image', {
+              icon: '🔤',
+            });
           }
           
           if (data.status === 'complete') {
@@ -264,15 +286,17 @@ export function FormPage() {
     }
     
     try {
+      // Create a FormData object to ensure compatibility with the backend
+      const formData = new FormData();
+      formData.append('requestId', requestId);
+      formData.append('captchaText', captchaText);
+      
+      console.log(`Submitting CAPTCHA to ${API_URL}/submit-captcha`);
+      console.log('CAPTCHA data:', { requestId, captchaText });
+      
       const response = await fetch(`${API_URL}/submit-captcha`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          requestId,
-          captchaText
-        }),
+        body: formData,
       });
       
       if (response.ok) {
