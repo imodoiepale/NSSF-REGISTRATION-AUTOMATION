@@ -75,11 +75,11 @@ wss.on('connection', (ws, req) => {
 });
 
 // Function to send progress updates
-const sendProgress = (id, status, progress) => {
+const sendProgress = (id, status, progress, errorMessage = null) => {
   const ws = clients.get(id);
   if (ws && ws.readyState === 1) { // 1 = OPEN
-    ws.send(JSON.stringify({ status, progress }));
-    console.log(`Progress update sent to ${id}: ${status} ${progress}%`);
+    ws.send(JSON.stringify({ status, progress, error: errorMessage }));
+    console.log(`Progress update sent to ${id}: ${status} ${progress}% ${errorMessage ? 'Error: ' + errorMessage : ''}`);
   }
 };
 
@@ -198,19 +198,21 @@ app.post(['/api/submit-form', '/submit-form'], upload.none(), async (req, res) =
         child.stderr.on('data', (data) => {
           const errorMsg = data.toString().trim();
           console.error(`Automation error: ${errorMsg}`);
-          sendProgress(requestId, 'error', 0);
+          sendProgress(requestId, 'error', 0, errorMsg);
         });
         
         // Handle spawn error (rare but possible)
         child.on('error', (error) => {
-          console.error(`Failed to start automation: ${error.message}`);
-          sendProgress(requestId, 'error', 0);
+          const errorMsg = `Failed to start automation: ${error.message}`;
+          console.error(errorMsg);
+          sendProgress(requestId, 'error', 0, errorMsg);
         });
 
         child.on('exit', (code) => {
           if (code !== 0) {
-            console.error(`Automation process exited with code ${code}`);
-            sendProgress(requestId, 'error', 100);
+            const errorMsg = `Automation process exited with code ${code}`;
+            console.error(errorMsg);
+            sendProgress(requestId, 'error', 100, errorMsg);
             return;
           }
 

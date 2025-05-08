@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+// @ts-ignore - Ignore TypeScript errors for react-hot-toast
+import toast, { Toaster } from 'react-hot-toast';
 import { 
   Card, 
   CardContent, 
@@ -11,7 +13,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
 import { FileIcon, UserIcon, Clock, CheckCircle, ArrowLeft, Download } from 'lucide-react';
 
 export function FormPage() {
@@ -92,13 +93,21 @@ export function FormPage() {
         try {
           const data = JSON.parse(event.data);
           console.log('WebSocket message received:', data);
+          setProgress(data.progress || 0);
           
-          setProgress(data.progress);
-          setStatus(data.status);
+          // Handle error messages from WebSocket
+          if (data.error) {
+            console.error('Error from server:', data.error);
+            toast.error(data.error);
+          }
           
-          if (data.status === 'complete' && data.progress === 100) {
-            // Fetch the completed PDF
+          if (data.status === 'complete') {
+            setStatus('complete');
+            toast.success('NSSF Registration completed successfully!');
             fetchCompletedPdf(id);
+          } else if (data.status === 'error') {
+            setStatus('error');
+            toast.error(data.error || 'Registration process failed');
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -187,8 +196,13 @@ export function FormPage() {
   const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
+    // Show loading toast
+    const loadingToast = toast.loading('Submitting form...');
+    
     // Validate required fields
-    if (!formData.mobileNumber || !formData.email) {
+    if (!formData.firstName || !formData.surname || !formData.idNumber || 
+        !formData.dateOfBirth || !formData.mobileNumber || !formData.email) {
+      toast.dismiss(loadingToast);
       toast.error("Please fill in all required fields");
       return;
     }
@@ -201,13 +215,22 @@ export function FormPage() {
       console.log('Submitting form to:', `${API_URL}/submit-form`);
       console.log('Form data:', formData);
       
-      // First, test if the backend is reachable
       try {
+        // First, check if the backend is reachable with a health check
+        console.log('Checking API health...');
         const healthCheck = await fetch(`${API_URL}`, {
           method: 'GET',
-          mode: 'cors',
         });
-        console.log('Health check response:', await healthCheck.text());
+        
+        if (!healthCheck.ok) {
+          console.error('API health check failed');
+          toast.dismiss(loadingToast);
+          toast.error('Cannot connect to backend server.');
+          return;
+        }
+        
+        const healthCheckText = await healthCheck.text();
+        console.log('Health check response:', healthCheckText);
       } catch (healthError) {
         console.error('Health check failed:', healthError);
       }
@@ -227,37 +250,45 @@ export function FormPage() {
       const responseText = await response.text();
       console.log('Response text:', responseText);
       
-      let result;
+      // Dismiss loading toast regardless of outcome
+      toast.dismiss(loadingToast);
+      
       try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse response as JSON:', parseError);
-        throw new Error('Invalid response from server');
-      }
+        const result = responseText ? JSON.parse(responseText) : { success: false };
 
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to submit form');
-      }
-      
-      // Store the requestId for WebSocket connection
-      if (result.requestId) {
-        setRequestId(result.requestId);
-        console.log('Connecting WebSocket with ID:', result.requestId);
-        connectWebSocket(result.requestId);
-        
-        toast.info("Your registration is being processed. Please wait...");
-      }
-      
-      // If PDF data is immediately available
-      if (result.pdfData) {
-        setPdfData(result.pdfData);
-        toast.success("Form submitted and PDF generated successfully");
-        setStep(3);
-        setLoading(false);
+        if (response.ok && result.success) {
+          // Success toast
+          toast.success('Form submitted successfully!');
+          
+          // Store the request ID for WebSocket connection
+          setRequestId(result.requestId);
+          
+          // Connect to WebSocket
+          connectWebSocket(result.requestId);
+          
+          // Set processing state
+          setStatus('processing');
+          setStep(2); // Move to processing step instead of using setShowForm
+        } else {
+          // Detailed error message from server
+          const errorMessage = result.message || 'Failed to process request';
+          console.error('Form submission error:', errorMessage);
+          toast.error(`Error: ${errorMessage}`);
+        }
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        toast.error('Received invalid response from server');
       }
     } catch (error: unknown) {
+      // Network or other errors
       console.error('Form submission error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred while submitting the form';
+      toast.dismiss(loadingToast);
+      
+      // Provide a user-friendly error message based on error type
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Failed to connect to server. Please check your internet connection.';
+      
       toast.error(errorMessage);
       setLoading(false);
     }
@@ -303,6 +334,24 @@ export function FormPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 py-12">
+      {/* Add Toaster for notifications */}
+      <Toaster position="top-right" toastOptions={{
+        success: {
+          style: {
+            background: 'green',
+            color: 'white',
+          },
+          duration: 5000,
+        },
+        error: {
+          style: {
+            background: '#ff4b4b',
+            color: 'white',
+          },
+          duration: 5000,
+        },
+      }} />
+      
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-3xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">NSSF Registration Automation</h1>
