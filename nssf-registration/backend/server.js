@@ -518,12 +518,17 @@ app.post(['/api/submit-form', '/submit-form'], upload.none(), async (req, res) =
                                     
                                     // Extract progress and status
 
+                                    // Extract values from progressData to ensure they're defined
+                                    const progressValue = progressData.progress || 0;
+                                    const statusValue = progressData.status || 'processing';
+                                    const dataValue = progressData.data || {};
+                                    
                                     // Send the progress update to the client
-                                    console.log(`Sending progress update: ${progress}% to client ${requestId}`);
-                                    sendProgress(requestId, status, progress, null, null, data || {});
+                                    console.log(`Sending progress update: ${progressValue}% to client ${requestId}`);
+                                    sendProgress(requestId, statusValue, progressValue, null, null, dataValue);
                                     
                                     // Log success message
-                                    console.log(`Progress update sent to ${requestId}: ${status} ${progress}%`);
+                                    console.log(`Progress update sent to ${requestId}: ${statusValue} ${progressValue}%`);
                                 } catch (jsonError) {
                                     console.error(`Failed to parse progress JSON for ${requestId}:`, jsonError);
                                     console.error(`Problematic JSON string: ${jsonStr}`);
