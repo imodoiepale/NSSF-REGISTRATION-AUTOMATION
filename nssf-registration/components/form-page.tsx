@@ -78,10 +78,10 @@ export function FormPage() {
     // Note: Railway doesn't support WebSockets by default on free tier
     // We'll use polling as a fallback if WebSocket fails
     try {
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://nssf-backend-production.up.railway.app';
-      console.log('Connecting to WebSocket:', `${wsUrl}/ws?id=${id}`);
+      const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://nssf-backend-production.up.railway.app';
+      console.log('Connecting to WebSocket:', `${WS_URL}?id=${id}`);
       
-      const socket = new WebSocket(`${wsUrl}/ws?id=${id}`);
+      const socket = new WebSocket(`${WS_URL}?id=${id}`);
       
       socket.onopen = () => {
         console.log('WebSocket connection established');
