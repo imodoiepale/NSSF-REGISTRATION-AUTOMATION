@@ -28,12 +28,16 @@ export function FormPage() {
     mobileNumber: '',
     email: ''
   });
+  
+  // State variables for the form and process
   const [pdfData, setPdfData] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState('idle');
   const [requestId, setRequestId] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
-  
+  const [captchaImage, setCaptchaImage] = useState<string>('');
+  const [captchaText, setCaptchaText] = useState<string>('');
+
   // Clean up WebSocket connection when component unmounts
   useEffect(() => {
     return () => {
@@ -43,8 +47,77 @@ export function FormPage() {
       }
     };
   }, [wsConnected]);
+  
+  // Check server connectivity and determine which backend to use
+  useEffect(() => {
+    const checkServerConnectivity = async () => {
+      console.log('Checking server connectivity...');
+      setServerStatus('checking');
+      
+      try {
+        // Try local server first
+        const localUrl = 'http://localhost:3000';
+        console.log('Testing local backend at:', localUrl);
+        
+        const localResponse = await fetch(`${localUrl}/health`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          // Short timeout for quick feedback
+          signal: AbortSignal.timeout(2000)
+        });
+        
+        if (localResponse.ok) {
+          console.log('Local server is available!');
+          setApiUrl(localUrl);
+          setServerStatus('local');
+          toast.success('Connected to local backend server');
+          return;
+        }
+      } catch (error) {
+        const localError = error as Error;
+        console.log('Local server not available:', localError.message || 'Connection failed');
+      }
+      
+      try {
+        // If local fails, try hosted server
+        console.log('Testing hosted backend at:', HOSTED_API_URL);
+        
+        const hostedResponse = await fetch(`${HOSTED_API_URL}/health`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          // Longer timeout for remote server
+          signal: AbortSignal.timeout(5000)
+        });
+        
+        if (hostedResponse.ok) {
+          console.log('Hosted server is available!');
+          setApiUrl(HOSTED_API_URL);
+          setServerStatus('remote');
+          toast.success('Connected to hosted backend server');
+          return;
+        }
+      } catch (error) {
+        const hostedError = error as Error;
+        console.log('Hosted server not available:', hostedError.message || 'Connection failed');
+      }
+      
+      // If both fail
+      console.error('No backend servers available');
+      setServerStatus('none');
+      toast.error('Unable to connect to any backend server');
+    };
+    
+    checkServerConnectivity();
+  }, []);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://nssf-backend-production.up.railway.app';
+  // Try both local and hosted backends - first try local, then fallback to remote
+  const [API_URL, setApiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000');
+  const HOSTED_API_URL = 'https://nssf-backend-production.up.railway.app';
+  const [serverStatus, setServerStatus] = useState('checking'); // 'checking', 'local', 'remote', 'none'
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -75,13 +148,16 @@ export function FormPage() {
       return;
     }
     
-    // Create WebSocket connection
+    // Create WebSocket connection based on the API URL that was determined to be working
     // Note: Railway doesn't support WebSockets by default on free tier
     // We'll use polling as a fallback if WebSocket fails
     try {
-      const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://nssf-backend-production.up.railway.app';
-      console.log('Connecting to WebSocket:', `${WS_URL}?id=${id}`);
+      // Convert http/https URL to WebSocket URL (ws/wss)
+      const wsProtocol = API_URL.startsWith('https') ? 'wss' : 'ws';
+      const wsBaseUrl = API_URL.replace(/^https?:\/\//, ''); // Remove http:// or https://
+      const WS_URL = `${wsProtocol}://${wsBaseUrl}`;
       
+      console.log(`Connecting to WebSocket: ${WS_URL}?id=${id}`);
       const socket = new WebSocket(`${WS_URL}?id=${id}`);
       
       socket.onopen = () => {
@@ -99,6 +175,14 @@ export function FormPage() {
           if (data.error) {
             console.error('Error from server:', data.error);
             toast.error(data.error);
+          }
+          
+          // Handle CAPTCHA image
+          if (data.status === 'captcha_ready' && data.captchaImage) {
+            console.log('Received CAPTCHA image');
+            setCaptchaImage(data.captchaImage);
+            setStatus('captcha_needed');
+            toast('Please enter the CAPTCHA text displayed in the image');
           }
           
           if (data.status === 'complete') {
@@ -172,6 +256,39 @@ export function FormPage() {
     return () => clearInterval(pollInterval);
   };
   
+  // Function to submit CAPTCHA text
+  const submitCaptcha = async () => {
+    if (!requestId || !captchaText) {
+      toast.error('Please enter the CAPTCHA text');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/submit-captcha`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId,
+          captchaText
+        }),
+      });
+      
+      if (response.ok) {
+        toast.success('CAPTCHA submitted successfully');
+        setCaptchaImage(''); // Clear the CAPTCHA image
+        setCaptchaText(''); // Clear the CAPTCHA text
+        setStatus('processing'); // Update status to processing
+      } else {
+        toast.error('Failed to submit CAPTCHA');
+      }
+    } catch (error) {
+      console.error('Error submitting CAPTCHA:', error);
+      toast.error('Error submitting CAPTCHA');
+    }
+  };
+
   // Function to fetch the completed PDF
   const fetchCompletedPdf = async (id: string) => {
     try {
@@ -573,6 +690,39 @@ export function FormPage() {
                   </p>
                 </div>
 
+                {status === 'captcha_needed' && captchaImage && (
+                  <div className="mt-8 p-4 border rounded bg-white shadow-md">
+                    <h2 className="text-xl font-semibold mb-4">CAPTCHA Verification</h2>
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600 mb-2">Please enter the text shown in the image below:</p>
+                      <div className="flex justify-center mb-4">
+                        <img 
+                          src={`data:image/png;base64,${captchaImage}`} 
+                          alt="CAPTCHA" 
+                          className="border border-gray-300 rounded"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <input
+                          type="text"
+                          value={captchaText}
+                          onChange={(e) => setCaptchaText(e.target.value)}
+                          placeholder="Enter CAPTCHA text"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          autoFocus
+                        />
+                        <button
+                          onClick={submitCaptcha}
+                          disabled={!captchaText}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                          Submit
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <Card className="bg-gray-50">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">

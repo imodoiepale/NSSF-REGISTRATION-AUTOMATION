@@ -38,7 +38,12 @@ app.use(express.json());
 
 // Add a simple health check endpoint
 app.get('/', (req, res) => {
-  res.status(200).send('NSSF Registration Automation API is running');
+  res.json({ status: 'NSSF Registration API is running' });
+});
+
+// Health check endpoint for server availability testing
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Server is running' });
 });
 
 // WebSocket connection handling
@@ -74,12 +79,53 @@ wss.on('connection', (ws, req) => {
   });
 });
 
+// Global variable to store CAPTCHA images by request ID
+const captchaImages = new Map();
+
+// Function to store CAPTCHA input from user and send to automation process
+const storeCaptchaInput = (id, captchaText) => {
+  console.log(`Received CAPTCHA input for ${id}: ${captchaText}`);
+  
+  // Send confirmation to the client
+  const ws = clients.get(id);
+  if (ws) {
+    ws.send(JSON.stringify({ 
+      status: 'captcha_received', 
+      progress: 85, 
+      message: 'CAPTCHA received, continuing registration process' 
+    }));
+  }
+  
+  // If the automation process is waiting for this CAPTCHA input, resolve its promise
+  try {
+    // Check if global.resolveCaptchaFor exists and has a resolver for this request ID
+    if (global.resolveCaptchaFor && global.resolveCaptchaFor[id]) {
+      console.log(`Resolving CAPTCHA promise for ${id}`);
+      // Resolve the promise with the CAPTCHA text
+      global.resolveCaptchaFor[id]({ text: captchaText });
+      // Remove the resolver to free up memory
+      delete global.resolveCaptchaFor[id];
+    } else {
+      console.log(`No CAPTCHA resolver found for ${id}`);
+    }
+  } catch (error) {
+    console.error(`Error resolving CAPTCHA promise: ${error.message}`);
+  }
+};
+
 // Function to send progress updates
-const sendProgress = (id, status, progress, errorMessage = null) => {
+const sendProgress = (id, status, progress, errorMessage = null, captchaImage = null) => {
   const ws = clients.get(id);
   if (ws && ws.readyState === 1) { // 1 = OPEN
-    ws.send(JSON.stringify({ status, progress, error: errorMessage }));
-    console.log(`Progress update sent to ${id}: ${status} ${progress}% ${errorMessage ? 'Error: ' + errorMessage : ''}`);
+    // If this is a captcha_ready update, include the CAPTCHA image
+    if (status === 'captcha_ready' && captchaImage) {
+      captchaImages.set(id, captchaImage);
+      ws.send(JSON.stringify({ status, progress, captchaImage, error: errorMessage }));
+      console.log(`CAPTCHA image sent to ${id}`);
+    } else {
+      ws.send(JSON.stringify({ status, progress, error: errorMessage }));
+      console.log(`Progress update sent to ${id}: ${status} ${progress}% ${errorMessage ? 'Error: ' + errorMessage : ''}`);
+    }
   }
 };
 
@@ -229,6 +275,27 @@ app.post(['/api/submit-form', '/submit-form'], upload.none(), async (req, res) =
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: 'Server error' });
     }
+  }
+});
+
+// Endpoint to receive CAPTCHA input from frontend
+app.post('/submit-captcha', upload.none(), async (req, res) => {
+  try {
+    const { requestId, captchaText } = req.body;
+    
+    if (!requestId || !captchaText) {
+      return res.status(400).json({ success: false, message: 'Missing requestId or captchaText' });
+    }
+    
+    console.log(`Received CAPTCHA input for ${requestId}: ${captchaText}`);
+    
+    // Store the CAPTCHA text and notify the automation process
+    storeCaptchaInput(requestId, captchaText);
+    
+    res.json({ success: true, message: 'CAPTCHA received' });
+  } catch (err) {
+    console.error('Error processing CAPTCHA:', err);
+    res.status(500).json({ success: false, message: 'Failed to process CAPTCHA' });
   }
 });
 
