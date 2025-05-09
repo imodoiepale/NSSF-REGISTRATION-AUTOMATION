@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-import { Toaster } from "@/components/ui/sonner"
+import { Analytics } from "@vercel/analytics/react"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,9 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NSSF Registration",
   description: "NSSF Registration",
-  icons: {
-    icon: "/favicon.ico",
-  },
 };
 
 export default function RootLayout({
@@ -33,7 +29,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        {/* <Toaster /> */}
+        <Analytics />
       </body>
     </html>
   );
