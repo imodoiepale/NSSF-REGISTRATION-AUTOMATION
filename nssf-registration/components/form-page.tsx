@@ -15,6 +15,38 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FileIcon, UserIcon, Clock, CheckCircle, ArrowLeft, Download, RefreshCw } from 'lucide-react';
 
+// Step indicator component
+const StepIndicator = ({ currentStep }: { currentStep: number }) => {
+  return (
+    <div className="flex justify-between items-center w-full py-2">
+      <div className={`flex items-center ${currentStep >= 1 ? 'text-primary' : 'text-gray-400'}`}>
+        <div className={`flex items-center justify-center w-8 h-8 rounded-full mr-2 ${currentStep >= 1 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+          <UserIcon className="h-4 w-4" />
+        </div>
+        <span className="text-sm font-medium hidden sm:inline">Personal Info</span>
+      </div>
+      
+      <div className={`flex-1 h-1 mx-2 ${currentStep >= 2 ? 'bg-primary' : 'bg-gray-200'}`}></div>
+      
+      <div className={`flex items-center ${currentStep >= 2 ? 'text-primary' : 'text-gray-400'}`}>
+        <div className={`flex items-center justify-center w-8 h-8 rounded-full mr-2 ${currentStep >= 2 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+          <Clock className="h-4 w-4" />
+        </div>
+        <span className="text-sm font-medium hidden sm:inline">Processing</span>
+      </div>
+      
+      <div className={`flex-1 h-1 mx-2 ${currentStep >= 3 ? 'bg-primary' : 'bg-gray-200'}`}></div>
+      
+      <div className={`flex items-center ${currentStep >= 3 ? 'text-primary' : 'text-gray-400'}`}>
+        <div className={`flex items-center justify-center w-8 h-8 rounded-full mr-2 ${currentStep >= 3 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+          <CheckCircle className="h-4 w-4" />
+        </div>
+        <span className="text-sm font-medium hidden sm:inline">Complete</span>
+      </div>
+    </div>
+  );
+};
+
 export function FormPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -477,10 +509,16 @@ export function FormPage() {
             case 'complete':
               console.log('Received completion notification:', data);
               
+              // Store the requestId for later reference
+              if (data.requestId) {
+                console.log('Storing requestId from completion data:', data.requestId);
+                setRequestId(data.requestId);
+              }
+              
               // Set PDF data if available
               if (data.data && data.data.pdfUrl) {
                 console.log('Setting PDF URL from completion data:', data.data.pdfUrl);
-                // Ensure the URL is absolute
+                // Ensure the URL is absolute and uses the correct requestId
                 const pdfUrl = data.data.pdfUrl.startsWith('http') ? 
                   data.data.pdfUrl : 
                   `${API_URL}${data.data.pdfUrl}`;
@@ -496,8 +534,10 @@ export function FormPage() {
                 setPdfData(pdfUrl);
               } else {
                 // Default PDF path as fallback
-                console.log('Using default PDF path');
-                const pdfUrl = `${API_URL}/download-pdf/NSSF_${requestId}.pdf`;
+                // Use the stored ID number as a more reliable identifier if requestId is null
+                const safeRequestId = requestId || `ID${formData.idNumber}`;
+                console.log(`Using default PDF path with ID: ${safeRequestId}`);
+                const pdfUrl = `${API_URL}/download-pdf/NSSF_${safeRequestId}.pdf`;
                 console.log('Final PDF URL:', pdfUrl);
                 setPdfData(pdfUrl);
               }
@@ -748,6 +788,9 @@ export function FormPage() {
         mode: 'cors',
         body: JSON.stringify(formData),
       });
+      
+      // Log the request data for debugging
+      console.log('Sending form data with ID number:', formData.idNumber);
 
       console.log('Response status:', response.status);
 
@@ -966,11 +1009,30 @@ export function FormPage() {
         </div>
 
         <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-center">Registration Process</CardTitle>
-            <CardDescription className="text-center">Complete your NSSF registration in just a few steps</CardDescription>
-            <StepIndicator />
+          <CardHeader className="flex flex-col items-center sm:flex-row sm:justify-between">
+            <div className="flex items-center mb-4 sm:mb-0">
+              <div className="mr-4">
+                <img 
+                  src="/images/logo.png" 
+                  alt="Hadeazy Digital Logo" 
+                  className="h-12 w-auto"
+                />
+              </div>
+              <div>
+                <CardTitle className="text-center">NSSF Registration Process</CardTitle>
+                <CardDescription>
+                  {step === 1 && 'Enter your personal information to begin the NSSF registration process.'}
+                  {step === 2 && 'Please complete your contact information.'}
+                  {step === 3 && 'Your NSSF registration has been successfully processed!'}
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
+          
+          {/* Step indicator */}
+          <div className="px-6 pb-2">
+            <StepIndicator currentStep={step} />          
+          </div>
 
           <CardContent>
             {step === 1 && (
