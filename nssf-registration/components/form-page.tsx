@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
@@ -958,7 +959,7 @@ export function FormPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12">
+    <div className="min-h-screen bg-slate-50">
       {/* Add Toaster for notifications */}
       <Toaster position="top-right" toastOptions={{
         success: {
@@ -976,50 +977,56 @@ export function FormPage() {
           duration: 5000,
         },
       }} />
-
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-3xl">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">NSSF Registration Automation</h1>
-          <p className="mt-2 text-gray-600">Automated registration system for NSSF Kenya</p>
-
-          {/* Server status indicator */}
-          <div className="flex items-center justify-center mt-2">
-            {serverStatus === 'checking' && (
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-amber-500 mr-2 animate-pulse"></div>
-                <p className="text-sm text-amber-600">Checking server connection...</p>
-              </div>
-            )}
-            {serverStatus === 'none' && (
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-                <p className="text-sm text-red-600">No server available. Registration will not work.</p>
-              </div>
-            )}
-            {(serverStatus === 'local' || serverStatus === 'remote') && (
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-green-500 mr-2 animate-pulse"></div>
-                <p className="text-sm text-green-600">
-                  {serverStatus === 'local' ? 'Connected to local server' : 'Connected to remote server'}
-                  {wsConnected && ' (WebSocket active)'}
-                </p>
-              </div>
-            )}
+      
+      {/* Navbar with logo */}
+      <nav className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <img 
+                src="/images/logo.png" 
+                alt="Hadeazy Digital Logo" 
+                className="h-20 w-auto" 
+              />
+              <span className="ml-3 font-semibold text-gray-800 hidden sm:inline">NSSF Registration</span>
+            </div>
+            {/* Right side of navbar - server status */}
+            <div className="flex items-center">
+              {serverStatus === 'checking' && (
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></div>
+                  <p className="text-xs text-amber-600">Checking connection...</p>
+                </div>
+              )}
+              {serverStatus === 'none' && (
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                  <p className="text-xs text-red-600">No server available</p>
+                </div>
+              )}
+              {(serverStatus === 'local' || serverStatus === 'remote') && (
+                <div className="flex items-center">
+                  <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></div>
+                  <p className="text-xs text-green-600">
+                    {serverStatus === 'local' ? 'Local server' : 'Remote server'}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
+        </div>
+      </nav>
+
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-3xl py-8">
+        <div className="text-center mb-8">
+          <h1 className=" md:text-2xl text-md font-bold text-gray-900">NSSF Registration Under 30 Seconds</h1>
         </div>
 
         <Card className="shadow-lg">
           <CardHeader className="flex flex-col items-center sm:flex-row sm:justify-between">
             <div className="flex items-center mb-4 sm:mb-0">
-              <div className="mr-4">
-                <img 
-                  src="/images/logo.png" 
-                  alt="Hadeazy Digital Logo" 
-                  className="h-12 w-auto"
-                />
-              </div>
               <div>
-                <CardTitle className="text-center">NSSF Registration Process</CardTitle>
+                <CardTitle className="">NSSF Registration Process</CardTitle>
                 <CardDescription>
                   {step === 1 && 'Enter your personal information to begin the NSSF registration process.'}
                   {step === 2 && 'Please complete your contact information.'}
@@ -1324,6 +1331,8 @@ export function FormPage() {
                         <Download className="mr-2 h-4 w-4" /> Download
                       </Button>
                     </div>
+
+                    
                   </CardContent>
                 </Card>
 
@@ -1370,6 +1379,10 @@ export function FormPage() {
                 </Button>
               </div>
             )}
+            <CardFooter className="pt-4 flex justify-between">
+            <p className="mt-2 text-gray-600">Automated Registration System for NSSF Kenya. Made with ❤️ by <a href="https://hadeazy.com" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-500 hover:underline">Hadeazy</a>.</p>
+            </CardFooter>
+
           </CardContent>
         </Card>
       </div>

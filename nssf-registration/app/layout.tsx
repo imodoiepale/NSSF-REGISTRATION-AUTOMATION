@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NSSF Registration",
   description: "NSSF Registration",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
