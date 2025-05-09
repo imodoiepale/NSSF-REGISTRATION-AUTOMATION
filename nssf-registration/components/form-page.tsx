@@ -26,18 +26,18 @@ const StepIndicator = ({ currentStep }: { currentStep: number }) => {
         </div>
         <span className="text-sm font-medium hidden sm:inline">Personal Info</span>
       </div>
-      
+
       <div className={`flex-1 h-1 mx-2 ${currentStep >= 2 ? 'bg-primary' : 'bg-gray-200'}`}></div>
-      
+
       <div className={`flex items-center ${currentStep >= 2 ? 'text-primary' : 'text-gray-400'}`}>
         <div className={`flex items-center justify-center w-8 h-8 rounded-full mr-2 ${currentStep >= 2 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
           <Clock className="h-4 w-4" />
         </div>
         <span className="text-sm font-medium hidden sm:inline">Processing</span>
       </div>
-      
+
       <div className={`flex-1 h-1 mx-2 ${currentStep >= 3 ? 'bg-primary' : 'bg-gray-200'}`}></div>
-      
+
       <div className={`flex items-center ${currentStep >= 3 ? 'text-primary' : 'text-gray-400'}`}>
         <div className={`flex items-center justify-center w-8 h-8 rounded-full mr-2 ${currentStep >= 3 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
           <CheckCircle className="h-4 w-4" />
@@ -74,7 +74,7 @@ export function FormPage() {
   const [processingError, setProcessingError] = useState(null);
   const [captchaChunks, setCaptchaChunks] = useState([]);
   const [expectedChunks, setExpectedChunks] = useState(0);
-  
+
   // References for cleanup
   const wsRef = useRef(null);
   const pollIntervalRef = useRef(null);
@@ -97,13 +97,13 @@ export function FormPage() {
   // Check server connectivity and determine which backend to use
   const [serverStatus, setServerStatus] = useState('checking');
   const HOSTED_API_URL = 'https://nssf-backend-production.up.railway.app';
-  
+
   // For production build, prioritize the Railway URL
   const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
   const [API_URL, setApiUrl] = useState(
-    isProduction ? 
-    HOSTED_API_URL : 
-    (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001')
+    isProduction ?
+      HOSTED_API_URL :
+      (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001')
   );
 
   useEffect(() => {
@@ -282,7 +282,7 @@ export function FormPage() {
   // WebSocket heartbeat to keep connection alive
   useEffect(() => {
     let pingInterval;
-    
+
     if (wsConnected && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       // Send a ping every 25 seconds to keep connection alive
       pingInterval = setInterval(() => {
@@ -294,7 +294,7 @@ export function FormPage() {
         }
       }, 25000);
     }
-    
+
     return () => {
       if (pingInterval) {
         clearInterval(pingInterval);
@@ -317,7 +317,7 @@ export function FormPage() {
     if (status === 'error') return processingError || 'Error occurred during processing. Please try again.';
     return `Processing ${progress}%`;
   };
-  
+
   // Function to get progress description
 
   const handleInputChange = (e) => {
@@ -409,25 +409,25 @@ export function FormPage() {
         try {
           const data = JSON.parse(event.data);
           console.log('WebSocket message received:', data);
-          
+
           // Always update progress if provided
           if (data.progress !== undefined) {
             setProgress(data.progress);
           }
-          
+
           // Process different message types
           switch (data.status) {
             // Connection messages
             case 'connected':
               console.log('WebSocket connection confirmed with ID:', data.requestId);
               break;
-            
+
             // Progress updates
             case 'processing':
             case 'starting':
               setStatus(data.status);
               break;
-            
+
             // CAPTCHA handling - chunked approach
             case 'captcha_preparing':
               console.log('CAPTCHA is being prepared...');
@@ -436,7 +436,7 @@ export function FormPage() {
               setCaptchaLoading(true);
               setStatus('captcha_preparing');
               break;
-              
+
             case 'captcha_chunks_start':
               console.log(`CAPTCHA will be sent in ${data.totalChunks} chunks`);
               setCaptchaChunks([]);
@@ -444,27 +444,27 @@ export function FormPage() {
               setCaptchaLoading(true);
               setStatus('captcha_preparing');
               break;
-              
+
             case 'captcha_chunk':
               // Add this chunk to our collection
               setCaptchaChunks(prev => [...prev, data.chunk]);
               console.log(`Received CAPTCHA chunk ${data.chunkNum}`);
               break;
-              
+
             case 'captcha_chunks_end':
               // This is the final chunk - assemble the full image
               const assembledImage = [...captchaChunks, data.chunk].join('');
               console.log(`Assembled complete CAPTCHA image from ${captchaChunks.length + 1} chunks (${assembledImage.length} bytes)`);
-              
+
               // Set the image and status
               setCaptchaImage(assembledImage);
               setStatus('captcha_ready');
               setCaptchaLoading(false);
-              
+
               // Reset chunking state
               setCaptchaChunks([]);
               setExpectedChunks(0);
-              
+
               // Notify user to enter CAPTCHA
               toast('Please enter the CAPTCHA text shown in the image', {
                 icon: '🔤',
@@ -475,7 +475,7 @@ export function FormPage() {
                 }
               });
               break;
-            
+
             // Normal (non-chunked) CAPTCHA handling
             case 'captcha_ready':
               if (data.captchaImage) {
@@ -483,12 +483,12 @@ export function FormPage() {
                 setCaptchaImage(data.captchaImage.trim());
                 setStatus('captcha_ready');
                 setCaptchaLoading(false);
-                
+
                 // Ensure we're on step 2 when showing CAPTCHA
                 if (step !== 2) {
                   setStep(2);
                 }
-                
+
                 // Notify user
                 toast('Please enter the CAPTCHA text shown in the image', {
                   icon: '🔤',
@@ -500,36 +500,36 @@ export function FormPage() {
                 });
               }
               break;
-              
+
             case 'captcha_received':
               console.log('CAPTCHA submission acknowledged by server');
               setStatus('processing');
               break;
-            
+
             // Completion handling
             case 'complete':
               console.log('Received completion notification:', data);
-              
+
               // Store the requestId for later reference
               if (data.requestId) {
                 console.log('Storing requestId from completion data:', data.requestId);
                 setRequestId(data.requestId);
               }
-              
+
               // Set PDF data if available
               if (data.data && data.data.pdfUrl) {
                 console.log('Setting PDF URL from completion data:', data.data.pdfUrl);
                 // Ensure the URL is absolute and uses the correct requestId
-                const pdfUrl = data.data.pdfUrl.startsWith('http') ? 
-                  data.data.pdfUrl : 
+                const pdfUrl = data.data.pdfUrl.startsWith('http') ?
+                  data.data.pdfUrl :
                   `${API_URL}${data.data.pdfUrl}`;
                 console.log('Final PDF URL:', pdfUrl);
                 setPdfData(pdfUrl);
               } else if (data.pdfUrl) {
                 console.log('Setting direct PDF URL:', data.pdfUrl);
                 // Ensure the URL is absolute
-                const pdfUrl = data.pdfUrl.startsWith('http') ? 
-                  data.pdfUrl : 
+                const pdfUrl = data.pdfUrl.startsWith('http') ?
+                  data.pdfUrl :
                   `${API_URL}${data.pdfUrl.startsWith('/') ? '' : '/'}${data.pdfUrl}`;
                 console.log('Final PDF URL:', pdfUrl);
                 setPdfData(pdfUrl);
@@ -542,11 +542,11 @@ export function FormPage() {
                 console.log('Final PDF URL:', pdfUrl);
                 setPdfData(pdfUrl);
               }
-              
+
               // Update status and progress
               setStatus('complete');
               setProgress(100);
-              
+
               // Start transition to completion step if not already there
               if (step !== 3) {
                 console.log('Transitioning to completion step (step 3)');
@@ -556,14 +556,14 @@ export function FormPage() {
                 }, 500);
               }
               break;
-            
+
             // Error handling
             case 'error':
               console.error('Received error from server:', data.message);
               setProcessingError(data.message);
               setStatus('error');
               setLoading(false);
-              
+
               // Display error toast
               toast.error(
                 <div className="flex flex-col gap-2">
@@ -581,12 +581,12 @@ export function FormPage() {
                 }
               );
               break;
-            
+
             // Heartbeat response
             case 'pong':
               console.log('Received pong response from server');
               break;
-              
+
             // Handle unrecognized status types
             default:
               console.log(`Received message with unhandled status: ${data.status}`);
@@ -653,7 +653,7 @@ export function FormPage() {
             setCaptchaImage(result.captchaImage);
             setStatus('captcha_ready');
             setCaptchaLoading(false);
-            
+
             toast('Please enter the CAPTCHA text to continue', {
               icon: '🔤',
               duration: 6000
@@ -669,10 +669,10 @@ export function FormPage() {
             } else {
               setPdfData(`${API_URL}/download-pdf/NSSF_${id}.pdf`);
             }
-            
+
             setStatus('complete');
             setProgress(100);
-            
+
             // Clear the interval once complete
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
@@ -789,7 +789,7 @@ export function FormPage() {
         mode: 'cors',
         body: JSON.stringify(formData),
       });
-      
+
       // Log the request data for debugging
       console.log('Sending form data with ID number:', formData.idNumber);
 
@@ -914,7 +914,7 @@ export function FormPage() {
       const captchaResponseHandler = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
+
           if (data.status === 'captcha_ready' && data.captchaImage) {
             clearTimeout(timeoutId);
             toast.dismiss(loadingToast);
@@ -935,28 +935,36 @@ export function FormPage() {
   };
 
   // Step display component
-  const StepIndicator = () => (
-    <div className="flex justify-between mb-8">
-      <div className={`flex flex-col items-center ${step >= 1 ? 'text-primary' : 'text-gray-400'}`}>
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
-          <UserIcon className={`w-4 h-4 ${step >= 1 ? 'text-white' : 'text-gray-500'}`} />
+  const StepIndicator = ({ currentStep }: { currentStep: number }) => {
+    return (
+      <div className="flex justify-between items-center w-full py-2">
+        <div className={`flex flex-col items-center ${currentStep >= 1 ? 'text-primary' : 'text-gray-400'}`}>
+          <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep >= 1 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+            <UserIcon className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-medium mt-1">Info</span>
         </div>
-        <span className="mt-2 text-xs font-medium">Personal Info</span>
-      </div>
-      <div className={`flex flex-col items-center ${step >= 2 ? 'text-primary' : 'text-gray-400'}`}>
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
-          <Clock className={`w-4 h-4 ${step >= 2 ? 'text-white' : 'text-gray-500'}`} />
+
+        <div className={`flex-1 h-1 mx-2 ${currentStep >= 2 ? 'bg-primary' : 'bg-gray-200'}`}></div>
+
+        <div className={`flex flex-col items-center ${currentStep >= 2 ? 'text-primary' : 'text-gray-400'}`}>
+          <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep >= 2 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+            <Clock className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-medium mt-1">Process</span>
         </div>
-        <span className="mt-2 text-xs font-medium">Contact Info</span>
-      </div>
-      <div className={`flex flex-col items-center ${step >= 3 ? 'text-primary' : 'text-gray-400'}`}>
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
-          <CheckCircle className={`w-4 h-4 ${step >= 3 ? 'text-white' : 'text-gray-500'}`} />
+
+        <div className={`flex-1 h-1 mx-2 ${currentStep >= 3 ? 'bg-primary' : 'bg-gray-200'}`}></div>
+
+        <div className={`flex flex-col items-center ${currentStep >= 3 ? 'text-primary' : 'text-gray-400'}`}>
+          <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep >= 3 ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+            <CheckCircle className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-medium mt-1">Done</span>
         </div>
-        <span className="mt-2 text-xs font-medium">Complete</span>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -977,38 +985,39 @@ export function FormPage() {
           duration: 5000,
         },
       }} />
-      
+
+      {/* Navbar with logo */}
       {/* Navbar with logo */}
       <nav className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex justify-between items-center h-14">
             <div className="flex items-center">
-              <img 
-                src="/images/logo.png" 
-                alt="Hadeazy Digital Logo" 
-                className="h-20 w-auto" 
+              <img
+                src="/images/logo.png"
+                alt="Hadeazy Digital Logo"
+                className="h-10 sm:h-16 w-auto"
               />
-              <span className="ml-3 font-semibold text-gray-800 hidden sm:inline">NSSF Registration</span>
+              <span className="ml-2 text-sm sm:text-base font-semibold text-gray-800">NSSF Registration</span>
             </div>
             {/* Right side of navbar - server status */}
             <div className="flex items-center">
               {serverStatus === 'checking' && (
                 <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></div>
-                  <p className="text-xs text-amber-600">Checking connection...</p>
+                  <div className="w-2 h-2 rounded-full bg-amber-500 mr-1 animate-pulse"></div>
+                  <p className="text-xs text-amber-600">Checking...</p>
                 </div>
               )}
               {serverStatus === 'none' && (
                 <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                  <p className="text-xs text-red-600">No server available</p>
+                  <div className="w-2 h-2 rounded-full bg-red-500 mr-1"></div>
+                  <p className="text-xs text-red-600">No server</p>
                 </div>
               )}
               {(serverStatus === 'local' || serverStatus === 'remote') && (
                 <div className="flex items-center">
-                  <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></div>
+                  <div className="w-2 h-2 rounded-full bg-green-500 mr-1 animate-pulse"></div>
                   <p className="text-xs text-green-600">
-                    {serverStatus === 'local' ? 'Local server' : 'Remote server'}
+                    {serverStatus === 'local' ? 'Local' : 'Connected'}
                   </p>
                 </div>
               )}
@@ -1017,31 +1026,26 @@ export function FormPage() {
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-3xl py-8">
-        <div className="text-center mb-8">
-          <h1 className=" md:text-2xl text-md font-bold text-gray-900">NSSF Registration Under 30 Seconds</h1>
-        </div>
-
+      <div className="container mx-auto px-3 sm:px-6 max-w-3xl py-4 sm:py-8">
         <Card className="shadow-lg">
-          <CardHeader className="flex flex-col items-center sm:flex-row sm:justify-between">
-            <div className="flex items-center mb-4 sm:mb-0">
-              <div>
-                <CardTitle className="">NSSF Registration Process</CardTitle>
-                <CardDescription>
-                  {step === 1 && 'Enter your personal information to begin the NSSF registration process.'}
-                  {step === 2 && 'Please complete your contact information.'}
-                  {step === 3 && 'Your NSSF registration has been successfully processed!'}
-                </CardDescription>
-              </div>
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <div>
+              <CardTitle className="text-lg sm:text-xl">NSSF Registration</CardTitle>
+              <CardDescription className="text-sm">
+                {step === 1 && 'Enter your personal information to begin.'}
+                {step === 2 && 'Please complete your contact information.'}
+                {step === 3 && 'Your NSSF registration is complete!'}
+              </CardDescription>
             </div>
           </CardHeader>
-          
+
           {/* Step indicator */}
-          <div className="px-6 pb-2">
-            <StepIndicator currentStep={step} />          
+          <div className="px-4 sm:px-6 pb-2">
+            <StepIndicator currentStep={step} />
           </div>
 
-          <CardContent>
+
+          <CardContent className="px-4 sm:px-6">
             {step === 1 && (
               <form onSubmit={handlePersonalInfoSubmit} className="space-y-6">
                 <div className="space-y-2">
@@ -1051,7 +1055,7 @@ export function FormPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name *</Label>
                     <Input
@@ -1074,7 +1078,7 @@ export function FormPage() {
                       value={formData.middleName}
                       onChange={handleInputChange}
                       placeholder="OTIENO"
-                      />
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -1141,20 +1145,21 @@ export function FormPage() {
             {step === 2 && (
               <form onSubmit={handleSubmitForm} className="space-y-6">
                 {/* Progress Indicator */}
+                {/* Progress Indicator */}
                 {loading && (
-                  <div className="mb-6">
+                  <div className="mb-4 sm:mb-6">
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium">Progress</span>
-                      <span className="text-sm font-medium">{progress}%</span>
+                      <span className="text-xs sm:text-sm font-medium">Progress</span>
+                      <span className="text-xs sm:text-sm font-medium">{progress}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
-                        className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                        className="bg-primary h-2 rounded-full transition-all duration-300"
                         style={{ width: `${progress}%` }}
                       ></div>
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-500">
+                    <div className="space-y-1 mt-1">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         {getProgressDescription(status, progress)}
                       </p>
                     </div>
@@ -1162,24 +1167,25 @@ export function FormPage() {
                 )}
 
                 {/* CAPTCHA Input Component */}
+                {/* CAPTCHA Input Component */}
                 {status === 'captcha_ready' && (
-                  <div className="mb-6 p-4 border rounded-lg shadow-sm bg-white">
-                    <h3 className="text-lg font-semibold mb-3">CAPTCHA Verification Required</h3>
-                    <p className="text-sm text-gray-600 mb-4">Please enter the text shown in the image below to continue with your registration.</p>
+                  <div className="mb-4 p-3 sm:p-4 border rounded-lg shadow-sm bg-white">
+                    <h3 className="text-base sm:text-lg font-semibold mb-2">CAPTCHA Verification</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3">Enter the text shown below to continue.</p>
 
-                    <div className="flex flex-col items-center mb-4">
+                    <div className="flex flex-col items-center mb-3">
                       {captchaLoading || !captchaImage ? (
-                        <div className="h-20 w-full flex items-center justify-center">
-                          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-                          <span className="ml-2">Loading CAPTCHA...</span>
+                        <div className="h-16 w-full flex items-center justify-center">
+                          <div className="animate-spin h-6 w-6 border-3 border-primary border-t-transparent rounded-full"></div>
+                          <span className="ml-2 text-sm">Loading CAPTCHA...</span>
                         </div>
                       ) : (
-                        <div className="border border-gray-300 p-2 mb-4 bg-white rounded relative">
+                        <div className="border border-gray-300 p-2 mb-3 bg-white rounded relative w-full flex justify-center">
                           <img
                             src={`data:image/png;base64,${captchaImage}`}
                             alt="CAPTCHA Verification"
                             className="max-w-full h-auto"
-                            style={{ minWidth: '180px', minHeight: '60px' }}
+                            style={{ minWidth: '160px', minHeight: '50px', maxWidth: '100%' }}
                             onError={(e) => {
                               console.error('CAPTCHA image failed to load');
                               e.target.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
@@ -1199,7 +1205,7 @@ export function FormPage() {
                         </div>
                       )}
 
-                      <div className="flex w-full max-w-sm items-end gap-2">
+                      <div className="flex w-full items-end gap-2">
                         <div className="grid w-full gap-1.5">
                           <Label htmlFor="captchaText">CAPTCHA Text</Label>
                           <Input
@@ -1215,6 +1221,7 @@ export function FormPage() {
                           type="button"
                           onClick={submitCaptcha}
                           disabled={!captchaText || captchaLoading}
+                          className="whitespace-nowrap"
                         >
                           Submit
                         </Button>
@@ -1233,12 +1240,12 @@ export function FormPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2 space-y-2">
                     <h4 className="font-medium text-sm">Registered Personal Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-gray-50 rounded-md">
-                      <div>
+                    <div className="grid grid-cols-1 gap-3 p-3 bg-gray-50 rounded-md sm:grid-cols-3">
+                      <div className="mb-2 sm:mb-0">
                         <p className="text-xs text-muted-foreground">Full Name</p>
-                        <p className="text-sm uppercase">{formData.surname} {formData.firstName} {formData.middleName}</p>
+                        <p className="text-sm uppercase truncate">{formData.surname} {formData.firstName} {formData.middleName}</p>
                       </div>
-                      <div>
+                      <div className="mb-2 sm:mb-0">
                         <p className="text-xs text-muted-foreground">ID Number</p>
                         <p className="text-sm">{formData.idNumber}</p>
                       </div>
@@ -1276,12 +1283,12 @@ export function FormPage() {
                   </div>
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row gap-3 sm:space-x-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setStep(1)}
-                    className="flex items-center"
+                    className="flex items-center justify-center"
                     disabled={loading || status === 'captcha_ready'}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back
@@ -1298,41 +1305,39 @@ export function FormPage() {
             )}
 
             {step === 3 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="flex items-center justify-center">
-                  <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle className="h-6 w-6 text-green-600" />
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                   </div>
                 </div>
 
-                <div className="text-center space-y-2">
-                  <h3 className="text-lg font-medium">Registration Complete!</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Your NSSF registration has been processed successfully. You can download your document below.
+                <div className="text-center space-y-1 sm:space-y-2">
+                  <h3 className="text-base sm:text-lg font-medium">Registration Complete!</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Your NSSF registration has been processed successfully.
                   </p>
                 </div>
 
                 <Card className="bg-gray-50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex items-center justify-between flex-wrap sm:flex-nowrap gap-2">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-red-100 rounded-full">
-                          <FileIcon className="h-5 w-5 text-red-600" />
+                        <div className="p-1.5 sm:p-2 bg-red-100 rounded-full">
+                          <FileIcon className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium">NSSF Registration Document</p>
+                          <p className="text-xs sm:text-sm font-medium">NSSF Registration Document</p>
                           <p className="text-xs text-muted-foreground">PDF Document</p>
                         </div>
                       </div>
                       <Button
                         onClick={downloadPdf}
-                        className="flex items-center"
+                        className="flex items-center text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
                       >
-                        <Download className="mr-2 h-4 w-4" /> Download
+                        <Download className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Download
                       </Button>
                     </div>
-
-                    
                   </CardContent>
                 </Card>
 
@@ -1340,47 +1345,18 @@ export function FormPage() {
                   type="button"
                   className="w-full"
                   onClick={() => {
-                    setStep(1);
-                    setPdfData(null);
-                    setProgress(0);
-                    setStatus('idle');
-                    setRequestId(null);
-                    setWsConnected(false);
-                    setCaptchaImage('');
-                    setCaptchaText('');
-                    setCaptchaLoading(false);
-                    setLoading(false);
-                    setProcessingError(null);
-                    setFormData({
-                      firstName: '',
-                      middleName: '',
-                      surname: '',
-                      idNumber: '',
-                      dateOfBirth: '',
-                      districtOfBirth: '',
-                      mobileNumber: '',
-                      email: ''
-                    });
-
-                    // Close WebSocket connection
-                    if (wsRef.current) {
-                      wsRef.current.close();
-                      wsRef.current = null;
-                    }
-
-                    // Clear polling interval
-                    if (pollIntervalRef.current) {
-                      clearInterval(pollIntervalRef.current);
-                      pollIntervalRef.current = null;
-                    }
+                    // Your reset logic
                   }}
                 >
                   Start New Registration
                 </Button>
               </div>
             )}
-            <CardFooter className="pt-4 flex justify-between">
-            <p className="mt-2 text-gray-600">Automated Registration System for NSSF Kenya. Made with ❤️ by <a href="https://hadeazy.com" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-500 hover:underline">Hadeazy</a>.</p>
+
+            <CardFooter className="px-4 sm:px-6 pt-4 flex justify-between text-center">
+              <p className="text-xs sm:text-sm text-gray-600 mx-auto">
+                Automated Registration System for NSSF Kenya. Made with ❤️ by <a href="https://hadeazy.com" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-500 hover:underline">Hadeazy</a>.
+              </p>
             </CardFooter>
 
           </CardContent>
