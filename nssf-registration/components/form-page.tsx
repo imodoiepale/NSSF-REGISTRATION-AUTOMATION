@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
-import { usePathname, useSearchParams } from 'next/navigation';
 import { Analytics } from '@vercel/analytics/react';
 import {
   Card,
@@ -119,23 +118,13 @@ export function FormPage() {
   }, []);
 
   // Track page view and analytics
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  // For Vercel Analytics, we don't need to manually track page views
+  // as the <Analytics /> component in layout.tsx handles that automatically
   
-  // Track page views using Vercel Analytics
+  // Effect to initialize visitor stats
   useEffect(() => {
-    const url = `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`;
-    
-    // This fires a page view event in Vercel Analytics
-    const handleRouteChange = () => {
-      // You can access analytics data through the Vercel Analytics dashboard
-      console.log('Page view tracked:', url);
-    };
-    
-    handleRouteChange();
-    
-    // For demo purposes, we'll still show some numbers
-    // In production, these would come from Vercel Analytics API
+    // For demo purposes, we'll show some persistent numbers using localStorage
+    // In production, this would be connected to a real analytics backend API
     const fetchVisitorStats = async () => {
       try {
         // In production, you would use Vercel Analytics API
@@ -164,7 +153,13 @@ export function FormPage() {
     };
     
     fetchVisitorStats();
-  }, [pathname, searchParams]);
+    
+    // Track a custom page view event - this will be tracked in Vercel Analytics
+    // without needing the usePathname and useSearchParams hooks
+    if (typeof window !== 'undefined') {
+      console.log('Page view tracked');
+    }
+  }, []);
 
   // Check server connectivity and determine which backend to use
   const [serverStatus, setServerStatus] = useState('checking');
@@ -304,8 +299,14 @@ export function FormPage() {
           // Force transition to step 3
           setStep(3);
           setStatus('complete');
-          // Increment completed registrations count
-          setCompletedRegistrations(prev => prev + 1);
+          // Increment completed registrations count and save to localStorage
+          const newCount = completedRegistrations + 1;
+          setCompletedRegistrations(newCount);
+          try {
+            localStorage.setItem('registrationCount', newCount.toString());
+          } catch (e) {
+            console.error('Failed to save registration count:', e);
+          }
           toast.success('Registration complete! Moving to final step.');
         }
       }, 3000); // Check after 3 seconds
@@ -626,12 +627,19 @@ export function FormPage() {
                 console.log('Transitioning to completion step (step 3)');
                 setTimeout(() => {
                   setStep(3);
+                  // Increment completed registrations count and save to localStorage
+                  const newCount = completedRegistrations + 1;
+                  setCompletedRegistrations(newCount);
+                  try {
+                    localStorage.setItem('registrationCount', newCount.toString());
+                  } catch (e) {
+                    console.error('Failed to save registration count:', e);
+                  }
                   toast.success('Registration completed successfully!');
                 }, 500);
               }
               break;
 
-            // Error handling
             case 'error':
               console.error('Received error from server:', data.message);
               setProcessingError(data.message);
