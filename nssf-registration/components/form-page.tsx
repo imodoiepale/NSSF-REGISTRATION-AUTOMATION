@@ -284,6 +284,44 @@ export function FormPage() {
     if (status === 'error') return processingError || 'Error occurred during processing. Please try again.';
     return `Processing ${progress}%`;
   };
+  
+  // Function to handle PDF download
+  const downloadPdf = () => {
+    if (!pdfData) {
+      toast.error('PDF is not available yet');
+      return;
+    }
+    
+    try {
+      // Log the PDF URL we're trying to download
+      console.log('Downloading PDF from URL:', pdfData);
+      
+      // Create a loading toast
+      const downloadToast = toast.loading('Downloading PDF...');
+      
+      // Create a temporary anchor element
+      const link = document.createElement('a');
+      link.href = pdfData;
+      link.target = '_blank';
+      link.download = `NSSF_Registration_${requestId || Date.now()}.pdf`;
+      
+      // Add event listeners to track download progress
+      link.addEventListener('click', () => {
+        setTimeout(() => {
+          toast.dismiss(downloadToast);
+          toast.success('PDF download started');
+        }, 1000);
+      });
+      
+      // Trigger the download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF. Please try again.');
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -478,14 +516,26 @@ export function FormPage() {
               // Set PDF data if available
               if (data.data && data.data.pdfUrl) {
                 console.log('Setting PDF URL from completion data:', data.data.pdfUrl);
-                setPdfData(data.data.pdfUrl);
+                // Ensure the URL is absolute
+                const pdfUrl = data.data.pdfUrl.startsWith('http') ? 
+                  data.data.pdfUrl : 
+                  `${API_URL}${data.data.pdfUrl}`;
+                console.log('Final PDF URL:', pdfUrl);
+                setPdfData(pdfUrl);
               } else if (data.pdfUrl) {
                 console.log('Setting direct PDF URL:', data.pdfUrl);
-                setPdfData(data.pdfUrl);
+                // Ensure the URL is absolute
+                const pdfUrl = data.pdfUrl.startsWith('http') ? 
+                  data.pdfUrl : 
+                  `${API_URL}${data.pdfUrl.startsWith('/') ? '' : '/'}${data.pdfUrl}`;
+                console.log('Final PDF URL:', pdfUrl);
+                setPdfData(pdfUrl);
               } else {
                 // Default PDF path as fallback
                 console.log('Using default PDF path');
-                setPdfData(`${API_URL}/download-pdf/NSSF_${requestId}.pdf`);
+                const pdfUrl = `${API_URL}/download-pdf/NSSF_${requestId}.pdf`;
+                console.log('Final PDF URL:', pdfUrl);
+                setPdfData(pdfUrl);
               }
               
               // Update status and progress
