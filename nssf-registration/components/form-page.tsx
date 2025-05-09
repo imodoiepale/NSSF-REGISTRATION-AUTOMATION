@@ -285,43 +285,7 @@ export function FormPage() {
     return `Processing ${progress}%`;
   };
   
-  // Function to handle PDF download
-  const downloadPdf = () => {
-    if (!pdfData) {
-      toast.error('PDF is not available yet');
-      return;
-    }
-    
-    try {
-      // Log the PDF URL we're trying to download
-      console.log('Downloading PDF from URL:', pdfData);
-      
-      // Create a loading toast
-      const downloadToast = toast.loading('Downloading PDF...');
-      
-      // Create a temporary anchor element
-      const link = document.createElement('a');
-      link.href = pdfData;
-      link.target = '_blank';
-      link.download = `NSSF_Registration_${requestId || Date.now()}.pdf`;
-      
-      // Add event listeners to track download progress
-      link.addEventListener('click', () => {
-        setTimeout(() => {
-          toast.dismiss(downloadToast);
-          toast.success('PDF download started');
-        }, 1000);
-      });
-      
-      // Trigger the download
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      toast.error('Failed to download PDF. Please try again.');
-    }
-  };
+  // Function to get progress description
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
