@@ -195,7 +195,7 @@ export function FormPage() {
               console.log('Hosted server is available!');
               setApiUrl(HOSTED_API_URL);
               setServerStatus('remote');
-              toast.success('Connected to hosted backend server');
+              // toast.success('Connected to hosted backend server');
               return;
             }
           } catch (hostedError) {
@@ -219,7 +219,7 @@ export function FormPage() {
               console.log('Local server is available!');
               setApiUrl(localUrl);
               setServerStatus('local');
-              toast.success('Connected to local backend server');
+              // toast.success('Connected to local backend server');
               return;
             }
           } catch (localError) {
@@ -243,7 +243,7 @@ export function FormPage() {
             console.log('Hosted server is available!');
             setApiUrl(HOSTED_API_URL);
             setServerStatus('remote');
-            toast.success('Connected to hosted backend server');
+            // toast.success('Connected to hosted backend server');
             return;
           }
         } catch (hostedError) {
@@ -438,7 +438,7 @@ export function FormPage() {
       socket.onopen = () => {
         console.log('WebSocket connection established');
         setWsConnected(true);
-        toast.success('Connected to real-time progress updates');
+        // toast.success('Connected to real-time progress updates');
       };
 
       socket.onerror = (error) => {
@@ -541,14 +541,14 @@ export function FormPage() {
               setExpectedChunks(0);
 
               // Notify user to enter CAPTCHA
-              toast('Please enter the CAPTCHA text shown in the image', {
-                icon: '🔤',
-                duration: 6000,
-                style: {
-                  backgroundColor: '#3b82f6',
-                  color: 'white'
-                }
-              });
+              // toast('Please enter the CAPTCHA text shown in the image', {
+              //   icon: '🔤',
+              //   duration: 6000,
+              //   style: {
+              //     backgroundColor: '#3b82f6',
+              //     color: 'white'
+              //   }
+              // });
               break;
 
             // Normal (non-chunked) CAPTCHA handling
@@ -1083,7 +1083,7 @@ export function FormPage() {
             </div>
             {/* Right side of navbar - server status and visitor count */}
             <div className="flex items-center space-x-4">
-              <VisitorCount count={visitorCount} />
+              {/* <VisitorCount count={visitorCount} /> */}
               
               {serverStatus === 'checking' && (
                 <div className="flex items-center">
@@ -1147,7 +1147,7 @@ export function FormPage() {
                       className='uppercase'
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      placeholder="CLINTON"
+                      placeholder="NEVER"
                       required
                     />
                   </div>
@@ -1160,7 +1160,7 @@ export function FormPage() {
                       className='uppercase'
                       value={formData.middleName}
                       onChange={handleInputChange}
-                      placeholder="OTIENO"
+                      placeholder="GIVE"
                     />
                   </div>
 
@@ -1172,7 +1172,7 @@ export function FormPage() {
                       className='uppercase'
                       value={formData.surname}
                       onChange={handleInputChange}
-                      placeholder="OCHIENG"
+                      placeholder="UP"
                       required
                     />
                   </div>
@@ -1184,7 +1184,7 @@ export function FormPage() {
                       name="idNumber"
                       value={formData.idNumber}
                       onChange={handleInputChange}
-                      placeholder="38454141"
+                      placeholder="88888888"
                       required
                     />
                   </div>
