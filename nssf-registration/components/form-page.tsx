@@ -1457,7 +1457,7 @@ export function FormPage() {
                 {step === 3 && <RegistrationCount count={completedRegistrations} />}
               </div>
               <p className="text-xs sm:text-sm text-gray-600 mx-auto">
-                Automated Registration System for NSSF Kenya. Made with ❤️ by <a href="https://hadeazy.com" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-500 hover:underline">Hadeazy</a>.
+                Automated Registration System for NSSF Kenya. Made with ❤️ by <a href="https://hadeazy.org" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-500 hover:underline">Hadeazy</a>.
               </p>
             </CardFooter>
 
